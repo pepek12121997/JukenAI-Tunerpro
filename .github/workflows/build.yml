@@ -69,8 +69,6 @@ jobs:
               implementation("androidx.compose.ui:ui")
               implementation("androidx.compose.ui:ui-graphics")
               implementation("androidx.compose.material3:material3")
-              implementation("androidx.compose.material:material-icons-extended")
-              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
           }
           EOF
 
@@ -98,25 +96,28 @@ jobs:
           import android.os.Bundle
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
-          import androidx.compose.foundation.*
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
+          import androidx.compose.foundation.clickable
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.items
           import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material.icons.Icons
-          import androidx.compose.material.icons.filled.*
+          import androidx.compose.material.icons.filled.Build
+          import androidx.compose.material.icons.filled.Info
+          import androidx.compose.material.icons.filled.PlayArrow
+          import androidx.compose.material.icons.filled.Settings
           import androidx.compose.material3.*
           import androidx.compose.runtime.*
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.setValue
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
-          import androidx.lifecycle.ViewModel
-          import androidx.lifecycle.viewmodel.compose.viewModel
           import kotlinx.coroutines.delay
-          import kotlinx.coroutines.flow.*
-          import kotlin.math.abs
 
           val DarkBg = Color(0xFF090D16)
           val SurfaceDark = Color(0xFF131B2E)
@@ -124,59 +125,53 @@ jobs:
           val NeonGreen = Color(0xFF00E676)
           val WarningAmber = Color(0xFFFFAB00)
 
-          class TunerViewModel : ViewModel() {
-              var rpm by mutableIntStateOf(2000)
-              var tps by mutableFloatStateOf(15.0f)
-              var afrActual by mutableFloatStateOf(13.6f)
-              var afrTarget by mutableFloatStateOf(12.8f)
-              var fuelGrid = mutableStateListOf(
-                  mutableStateListOf(14.0f, 16.5f, 18.0f, 21.0f),
-                  mutableStateListOf(22.0f, 25.0f, 28.5f, 32.0f),
-                  mutableStateListOf(30.0f, 34.0f, 39.0f, 45.0f)
-              )
-              val logs = mutableStateListOf("Mode simulasi aman aktif (Protokol fisik Juken 5 diisolasi).")
-
-              init {
-                  val flow = flow {
-                      var curRpm = 2000
-                      while (true) {
-                          curRpm = if (curRpm >= 8500) 1800 else curRpm + 300
-                          emit(curRpm)
-                          delay(400)
-                      }
-                  }
-                  // Jalankan background flow simulasi
-                  kotlinx.coroutines.GlobalScope.launch {
-                      flow.collect { r ->
-                          rpm = r
-                          tps = ((r - 1800) / 7000f * 100f).coerceIn(0f, 100f)
-                          afrActual = String.format("%.2f", 12.8f + if (r > 4500) 0.8f else -0.4f).toFloat()
-                      }
-                  }
-              }
-
-              fun applyCorrection(row: Int, col: Int) {
-                  val corr = ((afrActual / afrTarget) - 1.0f) * 100.0f
-                  val clamped = corr.coerceIn(-10.0f, 10.0f)
-                  fuelGrid[row][col] = fuelGrid[row][col] * (1.0f + (clamped / 100f))
-                  logs.add(0, "Koreksi AFR (${String.format("%.1f", clamped)}%) diaplikasikan pada sel [$row, $col]")
-              }
-          }
-
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContent {
-                      val vm: TunerViewModel = viewModel()
                       var tab by remember { mutableIntStateOf(0) }
+                      var rpm by remember { mutableIntStateOf(2000) }
+                      var tps by remember { mutableFloatStateOf(15.0f) }
+                      var afrActual by remember { mutableFloatStateOf(13.6f) }
+                      val afrTarget = 12.8f
+                      val logs = remember { mutableStateListOf("Mode simulasi aman aktif (Protokol fisik Juken 5 diisolasi).") }
+                      val fuelMap = remember {
+                          mutableStateListOf(
+                              mutableStateListOf(14.0f, 16.5f, 18.0f, 21.0f),
+                              mutableStateListOf(22.0f, 25.0f, 28.5f, 32.0f),
+                              mutableStateListOf(30.0f, 34.0f, 39.0f, 45.0f)
+                          )
+                      }
+
+                      LaunchedEffect(Unit) {
+                          var curRpm = 2000
+                          while (true) {
+                              curRpm = if (curRpm >= 8500) 1800 else curRpm + 350
+                              rpm = curRpm
+                              tps = ((curRpm - 1800) / 7000f * 100f).coerceIn(0f, 100f)
+                              val rawAfr = 12.8f + if (curRpm > 4500) 0.8f else -0.4f
+                              afrActual = ((rawAfr * 10).toInt() / 10f)
+                              delay(400)
+                          }
+                      }
+
+                      fun applyCorrection(row: Int, col: Int) {
+                          val corr = ((afrActual / afrTarget) - 1.0f) * 100.0f
+                          val clamped = corr.coerceIn(-10.0f, 10.0f)
+                          val oldVal = fuelMap[row][col]
+                          val newVal = oldVal * (1.0f + (clamped / 100f))
+                          fuelMap[row][col] = ((newVal * 10).toInt() / 10f)
+                          val corrFormatted = ((clamped * 10).toInt() / 10f)
+                          logs.add(0, "Koreksi AFR (" + corrFormatted + "%) diaplikasikan pada sel [" + row + ", " + col + "]")
+                      }
 
                       Scaffold(
                           containerColor = DarkBg,
                           bottomBar = {
                               NavigationBar(containerColor = SurfaceDark) {
-                                  NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Speed, null) }, label = { Text("Monitor") })
-                                  NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.LocalGasStation, null) }, label = { Text("Fuel Map") })
-                                  NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.Psychology, null) }, label = { Text("AI Tuner") })
+                                  NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.PlayArrow, null) }, label = { Text("Monitor") })
+                                  NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Build, null) }, label = { Text("Fuel Map") })
+                                  NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.Info, null) }, label = { Text("AI Tuner") })
                                   NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Hardware") })
                               }
                           }
@@ -188,19 +183,19 @@ jobs:
                                       Spacer(Modifier.height(16.dp))
                                       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                           Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("RPM", color = Color.Gray, fontSize = 12.sp); Text("${vm.rpm}", color = ElectricBlue, fontSize = 24.sp) }
+                                              Column(Modifier.padding(12.dp)) { Text("RPM", color = Color.Gray, fontSize = 12.sp); Text("" + rpm, color = ElectricBlue, fontSize = 24.sp) }
                                           }
                                           Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("TPS", color = Color.Gray, fontSize = 12.sp); Text("${String.format("%.1f", vm.tps)}%", color = NeonGreen, fontSize = 24.sp) }
+                                              Column(Modifier.padding(12.dp)) { Text("TPS", color = Color.Gray, fontSize = 12.sp); Text("" + ((tps * 10).toInt() / 10f) + "%", color = NeonGreen, fontSize = 24.sp) }
                                           }
                                       }
                                       Spacer(Modifier.height(10.dp))
                                       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                           Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("AFR AKTUAL", color = Color.Gray, fontSize = 12.sp); Text("${vm.afrActual}", color = WarningAmber, fontSize = 24.sp) }
+                                              Column(Modifier.padding(12.dp)) { Text("AFR AKTUAL", color = Color.Gray, fontSize = 12.sp); Text("" + afrActual, color = WarningAmber, fontSize = 24.sp) }
                                           }
                                           Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("AFR TARGET", color = Color.Gray, fontSize = 12.sp); Text("${vm.afrTarget}", color = ElectricBlue, fontSize = 24.sp) }
+                                              Column(Modifier.padding(12.dp)) { Text("AFR TARGET", color = Color.Gray, fontSize = 12.sp); Text("" + afrTarget, color = ElectricBlue, fontSize = 24.sp) }
                                           }
                                       }
                                   }
@@ -208,13 +203,13 @@ jobs:
                                       Text("FUEL MAP (SIMULASI INTERAKTIF)", color = ElectricBlue, fontSize = 18.sp)
                                       Text("Klik sel untuk simulasi koreksi AI", color = Color.Gray, fontSize = 12.sp)
                                       Spacer(Modifier.height(16.dp))
-                                      vm.fuelGrid.forEachIndexed { r, row ->
+                                      fuelMap.forEachIndexed { r, row ->
                                           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                               row.forEachIndexed { c, cell ->
                                                   Box(
-                                                      Modifier.weight(1f).height(44.dp).background(SurfaceDark, RoundedCornerShape(4.dp)).border(1.dp, ElectricBlue, RoundedCornerShape(4.dp)).clickable { vm.applyCorrection(r, c) },
+                                                      Modifier.weight(1f).height(44.dp).background(SurfaceDark, RoundedCornerShape(4.dp)).border(1.dp, ElectricBlue, RoundedCornerShape(4.dp)).clickable { applyCorrection(r, c) },
                                                       contentAlignment = Alignment.Center
-                                                  ) { Text(String.format("%.1f", cell), color = Color.White, fontSize = 12.sp) }
+                                                  ) { Text("" + cell, color = Color.White, fontSize = 12.sp) }
                                               }
                                           }
                                           Spacer(Modifier.height(6.dp))
@@ -225,10 +220,10 @@ jobs:
                                       Spacer(Modifier.height(12.dp))
                                       Card(colors = CardDefaults.cardColors(containerColor = SurfaceDark), modifier = Modifier.fillMaxWidth()) {
                                           Column(Modifier.padding(14.dp)) {
-                                              val dev = String.format("%.1f", ((vm.afrActual / vm.afrTarget) - 1.0f) * 100f)
-                                              Text("Analisis Deviasi AFR: $dev%", color = if (vm.afrActual > vm.afrTarget) WarningAmber else NeonGreen, fontSize = 16.sp)
+                                              val dev = ((((afrActual / afrTarget) - 1.0f) * 1000).toInt() / 10f)
+                                              Text("Analisis Deviasi AFR: " + dev + "%", color = if (afrActual > afrTarget) WarningAmber else NeonGreen, fontSize = 16.sp)
                                               Spacer(Modifier.height(6.dp))
-                                              Text(if (vm.afrActual > vm.afrTarget) "Kondisi Lean. Rekomendasi naikkan fuel." else "Kondisi Rich. Efisiensi optimal.", color = Color.LightGray, fontSize = 13.sp)
+                                              Text(if (afrActual > afrTarget) "Kondisi Lean. Rekomendasi naikkan suplai bensin." else "Kondisi Rich. Efisiensi optimal.", color = Color.LightGray, fontSize = 13.sp)
                                           }
                                       }
                                   }
@@ -237,7 +232,7 @@ jobs:
                                       Spacer(Modifier.height(12.dp))
                                       Text("Log Sistem:", color = Color.Gray, fontSize = 12.sp)
                                       LazyColumn(Modifier.fillMaxSize().background(SurfaceDark).padding(8.dp)) {
-                                          items(vm.logs) { log -> Text(log, color = Color.White, fontSize = 11.sp); Spacer(Modifier.height(4.dp)) }
+                                          items(logs) { log -> Text(log, color = Color.White, fontSize = 11.sp); Spacer(Modifier.height(4.dp)) }
                                       }
                                   }
                               }
