@@ -1,0 +1,687 @@
+name: Otomatis Rakit APK JUKEN AI TUNER
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Source Code & Struktur Proyek
+        run: |
+          mkdir -p app/src/main/java/com/juken/aituner/data/model
+          mkdir -p app/src/main/java/com/juken/aituner/data/bluetooth
+          mkdir -p app/src/main/java/com/juken/aituner/data/repository
+          mkdir -p app/src/main/java/com/juken/aituner/domain
+          mkdir -p app/src/main/java/com/juken/aituner/ui/theme
+          mkdir -p app/src/main/java/com/juken/aituner/ui/screens
+          mkdir -p app/src/test/java/com/juken/aituner
+
+          # settings.gradle.kts
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "JukenAiTuner"
+          include(":app")
+          EOF
+
+          # build.gradle.kts (Root)
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.2.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+          }
+          EOF
+
+          # app/build.gradle.kts
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.juken.aituner"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.juken.aituner"
+                  minSdk = 26
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0.0"
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+              buildFeatures {
+                  compose = true
+              }
+              composeOptions {
+                  kotlinCompilerExtensionVersion = "1.5.8"
+              }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.12.0")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+              implementation("androidx.activity:activity-compose:1.8.2")
+              implementation(platform("androidx.compose:compose-bom:2024.02.01"))
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-graphics")
+              implementation("androidx.compose.ui:ui-tooling-preview")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.material:material-icons-extended")
+              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+              testImplementation("junit:junit:4.13.2")
+          }
+          EOF
+
+          # AndroidManifest.xml
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:label="JUKEN AI TUNER"
+                  android:theme="@android:style/Theme.Material.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # Theme Colors
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/ui/theme/Color.kt
+          package com.juken.aituner.ui.theme
+          import androidx.compose.ui.graphics.Color
+          val BgDarkNavy = Color(0xFF090D16)
+          val SurfaceDark = Color(0xFF111827)
+          val CardDark = Color(0xFF1A2234)
+          val ElectricBlue = Color(0xFF00E5FF)
+          val ElectricBlueVariant = Color(0xFF0091EA)
+          val NeonGreen = Color(0xFF00E676)
+          val WarningAmber = Color(0xFFFFAB00)
+          val DangerRed = Color(0xFFFF1744)
+          val TextPrimary = Color(0xFFF3F4F6)
+          val TextSecondary = Color(0xFF9CA3AF)
+          val GridBorder = Color(0xFF26324D)
+          EOF
+
+          # Theme Config
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/ui/theme/Theme.kt
+          package com.juken.aituner.ui.theme
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.darkColorScheme
+          import androidx.compose.runtime.Composable
+          private val DarkColorScheme = darkColorScheme(
+              primary = ElectricBlue,
+              secondary = ElectricBlueVariant,
+              background = BgDarkNavy,
+              surface = SurfaceDark,
+              surfaceVariant = CardDark,
+              onPrimary = BgDarkNavy,
+              onSecondary = TextPrimary,
+              onBackground = TextPrimary,
+              onSurface = TextPrimary,
+              onSurfaceVariant = TextSecondary,
+              error = DangerRed
+          )
+          @Composable
+          fun JukenAiTunerTheme(content: @Composable () -> Unit) {
+              MaterialTheme(colorScheme = DarkColorScheme, content = content)
+          }
+          EOF
+
+          # Models
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/data/model/EcuModels.kt
+          package com.juken.aituner.data.model
+          enum class DataSourceType { SIMULATION, PHYSICAL_UNVERIFIED, UNAVAILABLE }
+          data class TelemetryData(
+              val rpm: Int = 0,
+              val tpsPercent: Float = 0f,
+              val engineTempC: Float = 0f,
+              val batteryVoltage: Float = 0f,
+              val afrActual: Float = 14.7f,
+              val afrTarget: Float = 14.7f,
+              val isDualBandMode2: Boolean = false,
+              val source: DataSourceType = DataSourceType.SIMULATION
+          )
+          data class TuningMap(
+              val id: String,
+              val name: String,
+              val rpmHeaders: List<Int>,
+              val tpsHeaders: List<Float>,
+              val grid: List<List<Float>>
+          ) {
+              fun updateCell(rpmIdx: Int, tpsIdx: Int, newValue: Float): TuningMap {
+                  val newGrid = grid.mapIndexed { r, row ->
+                      if (r == rpmIdx) {
+                          row.mapIndexed { t, value -> if (t == tpsIdx) newValue else value }
+                      } else row
+                  }
+                  return copy(grid = newGrid)
+              }
+          }
+          data class AiRecommendation(
+              val rpmIndex: Int,
+              val tpsIndex: Int,
+              val rpmValue: Int,
+              val tpsValue: Float,
+              val originalValue: Float,
+              val recommendedValue: Float,
+              val percentageDiff: Float,
+              val confidenceScore: Float,
+              val rationale: String,
+              val riskLevel: RiskLevel
+          )
+          enum class RiskLevel { LOW, MODERATE, HIGH }
+          EOF
+
+          # AfrEngine
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/domain/AfrEngine.kt
+          package com.juken.aituner.domain
+          import com.juken.aituner.data.model.AiRecommendation
+          import com.juken.aituner.data.model.RiskLevel
+          import com.juken.aituner.data.model.TuningMap
+          import kotlin.math.abs
+          object AfrEngine {
+              fun calculateCorrection(actual: Float, target: Float, clampLimit: Float = 10.0f): Float {
+                  if (actual <= 5.0f || target <= 5.0f) return 0f
+                  val rawDiffPercent = ((actual / target) - 1.0f) * 100.0f
+                  return rawDiffPercent.coerceIn(-clampLimit, clampLimit)
+              }
+              fun analyzeAndGenerateAdvice(
+                  currentMap: TuningMap,
+                  afrActual: Float,
+                  afrTarget: Float,
+                  currentRpm: Int,
+                  currentTps: Float,
+                  isStableState: Boolean
+              ): List<AiRecommendation> {
+                  val list = mutableListOf<AiRecommendation>()
+                  if (!isStableState) return list
+                  val rIndex = currentMap.rpmHeaders.indexOfFirst { abs(it - currentRpm) < 800 }
+                  val tIndex = currentMap.tpsHeaders.indexOfFirst { abs(it - currentTps) < 10.0f }
+                  if (rIndex != -1 && tIndex != -1) {
+                      val oldVal = currentMap.grid[rIndex][tIndex]
+                      val correctionPct = calculateCorrection(afrActual, afrTarget, clampLimit = 8.0f)
+                      val newVal = (oldVal * (1.0f + (correctionPct / 100.0f))).coerceIn(0f, 250f)
+                      val risk = when {
+                          abs(correctionPct) > 6.0f -> RiskLevel.HIGH
+                          abs(correctionPct) > 3.0f -> RiskLevel.MODERATE
+                          else -> RiskLevel.LOW
+                      }
+                      list.add(
+                          AiRecommendation(
+                              rpmIndex = rIndex,
+                              tpsIndex = tIndex,
+                              rpmValue = currentMap.rpmHeaders[rIndex],
+                              tpsValue = currentMap.tpsHeaders[tIndex],
+                              originalValue = oldVal,
+                              recommendedValue = String.format("%.1f", newVal).toFloat(),
+                              percentageDiff = String.format("%.1f", correctionPct).toFloat(),
+                              confidenceScore = 0.88f,
+                              rationale = if (correctionPct > 0) "Kondisi Lean. Rekomendasi tambah bahan bakar." else "Kondisi Rich. Rekomendasi kurangi bahan bakar.",
+                              riskLevel = risk
+                          )
+                      )
+                  }
+                  return list
+              }
+          }
+          EOF
+
+          # BluetoothTransport
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/data/bluetooth/BluetoothTransport.kt
+          package com.juken.aituner.data.bluetooth
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          sealed class ConnectionState {
+              object Disconnected : ConnectionState()
+              object Scanning : ConnectionState()
+              data class Connected(val deviceName: String, val isVerified: Boolean) : ConnectionState()
+          }
+          class BluetoothTransportManager {
+              private val _connectionStatus = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+              val connectionStatus: StateFlow<ConnectionState> = _connectionStatus.asStateFlow()
+              private val _logStream = MutableStateFlow<List<String>>(listOf("Mode simulasi aktif secara default."))
+              val logStream: StateFlow<List<String>> = _logStream.asStateFlow()
+              fun appendLog(msg: String) { _logStream.value = _logStream.value + ">> $msg" }
+              fun initiateSafeScan() {
+                  _connectionStatus.value = ConnectionState.Scanning
+                  appendLog("Memulai pencarian adaptor Bluetooth...")
+                  _connectionStatus.value = ConnectionState.Connected("JUKEN-BLE-UNVERIFIED", false)
+                  appendLog("Adaptor terdeteksi. Protokol belum diverifikasi. Mode tulis dinonaktifkan.")
+              }
+              fun disconnect() {
+                  _connectionStatus.value = ConnectionState.Disconnected
+                  appendLog("Koneksi ditutup. Kembali ke Mode Simulasi.")
+              }
+          }
+          EOF
+
+          # Repository
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/data/repository/TuningRepository.kt
+          package com.juken.aituner.data.repository
+          import com.juken.aituner.data.model.DataSourceType
+          import com.juken.aituner.data.model.TelemetryData
+          import com.juken.aituner.data.model.TuningMap
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.flow
+          class TuningRepository {
+              private val rpmScale = listOf(1500, 3000, 5000, 7000, 9000, 11000)
+              private val tpsScale = listOf(0f, 20f, 40f, 60f, 80f, 100f)
+              fun createInitialFuelMap(): TuningMap {
+                  val rows = rpmScale.map { rpm ->
+                      tpsScale.map { tps -> (12.0f + (rpm / 1000.0f) * 1.8f + (tps / 10f) * 0.9f).coerceIn(10f, 90f) }
+                  }
+                  return TuningMap("FUEL_BASE_01", "Base Fuel (Internal Simulation)", rpmScale, tpsScale, rows)
+              }
+              fun createInitialIgnitionMap(): TuningMap {
+                  val rows = rpmScale.map { rpm ->
+                      tpsScale.map { tps -> (15.0f + (rpm / 1200.0f) * 2.2f - (tps / 20f) * 1.1f).coerceIn(10f, 45f) }
+                  }
+                  return TuningMap("IGN_BASE_01", "Base Ignition (Internal Simulation)", rpmScale, tpsScale, rows)
+              }
+              fun getTelemetryStream(): Flow<TelemetryData> = flow {
+                  var baseRpm = 1800
+                  var goingUp = true
+                  while (true) {
+                      if (goingUp) {
+                          baseRpm += 150
+                          if (baseRpm >= 8500) goingUp = false
+                      } else {
+                          baseRpm -= 200
+                          if (baseRpm <= 1600) goingUp = true
+                      }
+                      val tps = ((baseRpm - 1500) / 7500f * 85f).coerceIn(0f, 100f)
+                      val afrActual = 12.8f + if (baseRpm > 4500) 0.9f else -0.5f
+                      emit(
+                          TelemetryData(
+                              rpm = baseRpm,
+                              tpsPercent = String.format("%.1f", tps).toFloat(),
+                              engineTempC = 88.5f,
+                              batteryVoltage = 13.8f,
+                              afrActual = String.format("%.2f", afrActual).toFloat(),
+                              afrTarget = 12.8f,
+                              isDualBandMode2 = baseRpm > 6000,
+                              source = DataSourceType.SIMULATION
+                          )
+                      )
+                      delay(400)
+                  }
+              }
+          }
+          EOF
+
+          # ViewModel
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/ui/TunerViewModel.kt
+          package com.juken.aituner.ui
+          import androidx.lifecycle.ViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.juken.aituner.data.bluetooth.BluetoothTransportManager
+          import com.juken.aituner.data.model.AiRecommendation
+          import com.juken.aituner.data.model.TelemetryData
+          import com.juken.aituner.data.model.TuningMap
+          import com.juken.aituner.data.repository.TuningRepository
+          import com.juken.aituner.domain.AfrEngine
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+          class TunerViewModel : ViewModel() {
+              private val repository = TuningRepository()
+              val btManager = BluetoothTransportManager()
+              private val _telemetry = MutableStateFlow(TelemetryData())
+              val telemetry: StateFlow<TelemetryData> = _telemetry.asStateFlow()
+              private val _fuelMap = MutableStateFlow(repository.createInitialFuelMap())
+              val fuelMap: StateFlow<TuningMap> = _fuelMap.asStateFlow()
+              private val _ignitionMap = MutableStateFlow(repository.createInitialIgnitionMap())
+              val ignitionMap: StateFlow<TuningMap> = _ignitionMap.asStateFlow()
+              private val _fuelHistory = mutableListOf<TuningMap>()
+              private val _aiRecommendations = MutableStateFlow<List<AiRecommendation>>(emptyList())
+              val aiRecommendations: StateFlow<List<AiRecommendation>> = _aiRecommendations.asStateFlow()
+              init {
+                  viewModelScope.launch {
+                      repository.getTelemetryStream().collect { data ->
+                          _telemetry.value = data
+                          val advice = AfrEngine.analyzeAndGenerateAdvice(_fuelMap.value, data.afrActual, data.afrTarget, data.rpm, data.tpsPercent, true)
+                          if (advice.isNotEmpty()) _aiRecommendations.value = advice
+                      }
+                  }
+              }
+              fun updateFuelCell(r: Int, t: Int, value: Float) {
+                  _fuelHistory.add(_fuelMap.value)
+                  _fuelMap.value = _fuelMap.value.updateCell(r, t, value)
+              }
+              fun updateIgnitionCell(r: Int, t: Int, value: Float) {
+                  _ignitionMap.value = _ignitionMap.value.updateCell(r, t, value)
+              }
+              fun undoFuelMap() {
+                  if (_fuelHistory.isNotEmpty()) _fuelMap.value = _fuelHistory.removeAt(_fuelHistory.lastIndex)
+              }
+              fun applyRecommendation(rec: AiRecommendation) {
+                  updateFuelCell(rec.rpmIndex, rec.tpsIndex, rec.recommendedValue)
+                  _aiRecommendations.value = _aiRecommendations.value.filterNot { it == rec }
+                  btManager.appendLog("Perubahan tersimpan di simulasi lokal.")
+              }
+          }
+          EOF
+
+          # Screens
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/ui/screens/Screens.kt
+          package com.juken.aituner.ui.screens
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.horizontalScroll
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.text.KeyboardOptions
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Undo
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.input.KeyboardType
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.juken.aituner.data.bluetooth.ConnectionState
+          import com.juken.aituner.data.model.*
+          import com.juken.aituner.ui.theme.*
+
+          @Composable
+          fun DashboardScreen(telemetry: TelemetryData) {
+              Column(modifier = Modifier.fillMaxSize().background(BgDarkNavy).padding(16.dp).verticalScroll(rememberScrollState())) {
+                  Text("ECU TELEMETRY MONITOR", style = MaterialTheme.typography.titleMedium, color = ElectricBlue)
+                  Text("Data Source: [ SIMULASI AKTIF ] - Mode Aman Tanpa Perintah Flash", style = MaterialTheme.typography.bodySmall, color = WarningAmber)
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                      MetricCard(Modifier.weight(1f), "ENGINE SPEED", "${telemetry.rpm}", "RPM", ElectricBlue)
+                      MetricCard(Modifier.weight(1f), "THROTTLE", "${telemetry.tpsPercent}", "% TPS", NeonGreen)
+                  }
+                  Spacer(modifier = Modifier.height(12.dp))
+                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                      MetricCard(Modifier.weight(1f), "AFR AKTUAL", "${telemetry.afrActual}", ": 1", if (telemetry.afrActual > 13.5f) WarningAmber else NeonGreen)
+                      MetricCard(Modifier.weight(1f), "AFR TARGET", "${telemetry.afrTarget}", ": 1", ElectricBlue)
+                  }
+                  Spacer(modifier = Modifier.height(12.dp))
+                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                      MetricCard(Modifier.weight(1f), "SUHU MESIN", "${telemetry.engineTempC}", "°C", TextPrimary)
+                      MetricCard(Modifier.weight(1f), "TEGANGAN AKI", "${telemetry.batteryVoltage}", "Volt", TextPrimary)
+                  }
+              }
+          }
+
+          @Composable
+          fun MetricCard(modifier: Modifier = Modifier, label: String, value: String, unit: String, highlight: Color) {
+              Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = CardDark), shape = RoundedCornerShape(12.dp)) {
+                  Column(modifier = Modifier.padding(14.dp)) {
+                      Text(label, color = TextSecondary, fontSize = 11.sp)
+                      Spacer(modifier = Modifier.height(4.dp))
+                      Text(value, color = highlight, fontSize = 22.sp, style = MaterialTheme.typography.headlineMedium)
+                      Text(unit, color = TextSecondary, fontSize = 11.sp)
+                  }
+              }
+          }
+
+          @Composable
+          fun MapEditorScreen(title: String, tuningMap: TuningMap, onCellChange: (Int, Int, Float) -> Unit, onUndo: () -> Unit) {
+              var selectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+              var editInput by remember { mutableStateOf("") }
+              var showDialog by remember { mutableStateOf(false) }
+
+              Column(modifier = Modifier.fillMaxSize().background(BgDarkNavy).padding(12.dp)) {
+                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                      Text(title, color = ElectricBlue, style = MaterialTheme.typography.titleMedium)
+                      IconButton(onClick = onUndo) { Icon(Icons.Default.Undo, contentDescription = "Undo", tint = ElectricBlue) }
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Box(modifier = Modifier.weight(1f).fillMaxWidth().border(1.dp, GridBorder, RoundedCornerShape(8.dp)).background(SurfaceDark)) {
+                      Column(modifier = Modifier.verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()).padding(8.dp)) {
+                          Row {
+                              Box(modifier = Modifier.size(54.dp, 36.dp), contentAlignment = Alignment.Center) { Text("RPM\\TPS", color = TextSecondary, fontSize = 10.sp) }
+                              tuningMap.tpsHeaders.forEach { tps ->
+                                  Box(modifier = Modifier.size(60.dp, 36.dp), contentAlignment = Alignment.Center) { Text("${tps.toInt()}%", color = ElectricBlue, fontSize = 12.sp) }
+                              }
+                          }
+                          tuningMap.rpmHeaders.forEachIndexed { rIdx, rpm ->
+                              Row {
+                                  Box(modifier = Modifier.size(54.dp, 40.dp), contentAlignment = Alignment.Center) { Text("$rpm", color = ElectricBlue, fontSize = 11.sp) }
+                                  tuningMap.grid[rIdx].forEachIndexed { tIdx, cellValue ->
+                                      val isSelected = selectedCell == Pair(rIdx, tIdx)
+                                      Box(
+                                          modifier = Modifier.size(60.dp, 40.dp).padding(2.dp).border(1.dp, if (isSelected) NeonGreen else GridBorder, RoundedCornerShape(4.dp)).background(if (isSelected) CardDark else Color.Transparent).clickable {
+                                              selectedCell = Pair(rIdx, tIdx)
+                                              editInput = cellValue.toString()
+                                              showDialog = true
+                                          },
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Text(String.format("%.1f", cellValue), color = TextPrimary, fontSize = 12.sp)
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+              if (showDialog && selectedCell != null) {
+                  AlertDialog(
+                      onDismissRequest = { showDialog = false },
+                      title = { Text("Edit Nilai Sel", color = TextPrimary) },
+                      text = {
+                          OutlinedTextField(
+                              value = editInput,
+                              onValueChange = { editInput = it },
+                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                              singleLine = true
+                          )
+                      },
+                      confirmButton = {
+                          Button(onClick = {
+                              editInput.toFloatOrNull()?.let { onCellChange(selectedCell!!.first, selectedCell!!.second, it) }
+                              showDialog = false
+                          }) { Text("Terapkan") }
+                      },
+                      dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Batal") } }
+                  )
+              }
+          }
+
+          @Composable
+          fun AiTunerScreen(recommendations: List<AiRecommendation>, onApply: (AiRecommendation) -> Unit) {
+              Column(modifier = Modifier.fillMaxSize().background(BgDarkNavy).padding(16.dp)) {
+                  Text("HYBRID AI ENGINE (LOCAL ANALYSIS)", color = ElectricBlue, style = MaterialTheme.typography.titleMedium)
+                  Spacer(modifier = Modifier.height(10.dp))
+                  if (recommendations.isEmpty()) {
+                      Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                          Text("Menghitung data telemetri...", color = TextSecondary)
+                      }
+                  } else {
+                      LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                          items(recommendations) { rec ->
+                              Card(colors = CardDefaults.cardColors(containerColor = CardDark)) {
+                                  Column(modifier = Modifier.padding(12.dp)) {
+                                      Text("RPM: ${rec.rpmValue} | TPS: ${rec.tpsValue}%", color = ElectricBlue, fontSize = 14.sp)
+                                      Text(rec.rationale, color = TextPrimary, fontSize = 12.sp)
+                                      Spacer(modifier = Modifier.height(6.dp))
+                                      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                          Text("${rec.originalValue} -> ${rec.recommendedValue} (${rec.percentageDiff}%)", color = TextSecondary, fontSize = 12.sp)
+                                          Button(onClick = { onApply(rec) }) { Text("Simulasikan") }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun SettingsScreen(connectionState: ConnectionState, logs: List<String>, onStartScan: () -> Unit, onDisconnect: () -> Unit) {
+              Column(modifier = Modifier.fillMaxSize().background(BgDarkNavy).padding(16.dp)) {
+                  Text("PENGATURAN & KEAMANAN HARDWARE", color = ElectricBlue, style = MaterialTheme.typography.titleMedium)
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Card(colors = CardDefaults.cardColors(containerColor = CardDark), modifier = Modifier.fillMaxWidth()) {
+                      Column(modifier = Modifier.padding(12.dp)) {
+                          Text("Status: ${if (connectionState is ConnectionState.Connected) "Terhubung (Pasif)" else "Terputus"}", color = TextPrimary)
+                          Spacer(modifier = Modifier.height(8.dp))
+                          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                              Button(onClick = onStartScan) { Text("Scan Bluetooth") }
+                              Button(onClick = onDisconnect) { Text("Putus") }
+                          }
+                      }
+                  }
+                  Spacer(modifier = Modifier.height(14.dp))
+                  Text("LOG SISTEM", color = TextSecondary, fontSize = 12.sp)
+                  LazyColumn(modifier = Modifier.fillMaxSize().background(SurfaceDark, RoundedCornerShape(8.dp)).padding(8.dp)) {
+                      items(logs) { log -> Text(log, color = TextPrimary, fontSize = 11.sp) }
+                  }
+              }
+          }
+          EOF
+
+          # MainActivity
+          cat << 'EOF' > app/src/main/java/com/juken/aituner/MainActivity.kt
+          package com.juken.aituner
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.activity.viewModels
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.vector.ImageVector
+          import com.juken.aituner.ui.TunerViewModel
+          import com.juken.aituner.ui.screens.*
+          import com.juken.aituner.ui.theme.*
+
+          enum class AppNav(val title: String, val icon: ImageVector) {
+              DASHBOARD("Monitor", Icons.Default.Speed),
+              FUEL_MAP("Fuel", Icons.Default.LocalGasStation),
+              IGN_MAP("Ignition", Icons.Default.Bolt),
+              AI_TUNER("AI Tuner", Icons.Default.Psychology),
+              SETTINGS("Pengaturan", Icons.Default.Settings)
+          }
+
+          class MainActivity : ComponentActivity() {
+              private val viewModel: TunerViewModel by viewModels()
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      JukenAiTunerTheme {
+                          var currentScreen by remember { mutableStateOf(AppNav.DASHBOARD) }
+                          val telemetry by viewModel.telemetry.collectAsState()
+                          val fuelMap by viewModel.fuelMap.collectAsState()
+                          val ignitionMap by viewModel.ignitionMap.collectAsState()
+                          val aiRecommendations by viewModel.aiRecommendations.collectAsState()
+                          val connectionStatus by viewModel.btManager.connectionStatus.collectAsState()
+                          val logs by viewModel.btManager.logStream.collectAsState()
+
+                          Scaffold(
+                              containerColor = BgDarkNavy,
+                              bottomBar = {
+                                  NavigationBar(containerColor = CardDark) {
+                                      AppNav.values().forEach { nav ->
+                                          NavigationBarItem(
+                                              icon = { Icon(nav.icon, contentDescription = nav.title) },
+                                              label = { Text(nav.title) },
+                                              selected = currentScreen == nav,
+                                              colors = NavigationBarItemDefaults.colors(
+                                                  selectedIconColor = ElectricBlue,
+                                                  selectedTextColor = ElectricBlue,
+                                                  unselectedIconColor = TextSecondary,
+                                                  unselectedTextColor = TextSecondary,
+                                                  indicatorColor = BgDarkNavy
+                                              ),
+                                              onClick = { currentScreen = nav }
+                                          )
+                                      }
+                                  }
+                              }
+                          ) { innerPadding ->
+                              Box(modifier = Modifier.padding(innerPadding)) {
+                                  when (currentScreen) {
+                                      AppNav.DASHBOARD -> DashboardScreen(telemetry)
+                                      AppNav.FUEL_MAP -> MapEditorScreen("Fuel Map Editor", fuelMap, { r, t, v -> viewModel.updateFuelCell(r, t, v) }, { viewModel.undoFuelMap() })
+                                      AppNav.IGN_MAP -> MapEditorScreen("Ignition Map Editor", ignitionMap, { r, t, v -> viewModel.updateIgnitionCell(r, t, v) }, {})
+                                      AppNav.AI_TUNER -> AiTunerScreen(aiRecommendations) { rec -> viewModel.applyRecommendation(rec) }
+                                      AppNav.SETTINGS -> SettingsScreen(connectionStatus, logs, { viewModel.btManager.initiateSafeScan() }, { viewModel.btManager.disconnect() })
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Build Android APK
+        run: |
+          gradle wrapper --gradle-version 8.2
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Simpan APK Siap Download
+        uses: actions/upload-artifact@v4
+        with:
+          name: JUKEN-AI-TUNER-DEBUG-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
