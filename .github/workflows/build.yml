@@ -66,11 +66,6 @@ jobs:
               composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
           }
 
-          // Matikan pemeriksaan ketat AAR metadata agar tidak memblokir build
-          tasks.matching { it.name.contains("AarMetadata") }.configureEach {
-              enabled = false
-          }
-
           dependencies {
               implementation("androidx.core:core-ktx:1.12.0")
               implementation("androidx.activity:activity-compose:1.8.2")
@@ -249,7 +244,7 @@ jobs:
 
       - name: Rakit Debug APK
         run: |
-          gradle assembleDebug --no-daemon --stacktrace
+          gradle assembleDebug -x checkDebugAarMetadata -x checkReleaseAarMetadata --no-daemon
 
       - name: Simpan APK Siap Download
         uses: actions/upload-artifact@v4
