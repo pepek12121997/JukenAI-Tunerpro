@@ -21,6 +21,10 @@ jobs:
           gradle-version: '8.2'
           cache-disabled: true
 
+      - name: Terima Lisensi Android SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+
       - name: Buat Struktur Proyek Android
         run: |
           mkdir -p app/src/main/java/com/juken/aituner
@@ -48,11 +52,11 @@ jobs:
           }
           android {
               namespace = "com.juken.aituner"
-              compileSdk = 34
+              compileSdk = 35
               defaultConfig {
                   applicationId = "com.juken.aituner"
                   minSdk = 26
-                  targetSdk = 34
+                  targetSdk = 35
                   versionCode = 1
                   versionName = "1.0.0"
               }
@@ -244,7 +248,7 @@ jobs:
 
       - name: Rakit Debug APK
         run: |
-          gradle assembleDebug -x checkDebugAarMetadata -x checkReleaseAarMetadata --no-daemon
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Simpan APK Siap Download
         uses: actions/upload-artifact@v4
