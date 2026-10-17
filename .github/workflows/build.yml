@@ -24,6 +24,9 @@ jobs:
         run: |
           mkdir -p app/src/main/java/com/juken/aituner
 
+          # Local properties untuk SDK Android
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
           cat << 'EOF' > settings.gradle.kts
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositories { google(); mavenCentral() } }
@@ -103,11 +106,6 @@ jobs:
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.items
           import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.material.icons.Icons
-          import androidx.compose.material.icons.filled.Build
-          import androidx.compose.material.icons.filled.Info
-          import androidx.compose.material.icons.filled.PlayArrow
-          import androidx.compose.material.icons.filled.Settings
           import androidx.compose.material3.*
           import androidx.compose.runtime.*
           import androidx.compose.runtime.getValue
@@ -129,10 +127,10 @@ jobs:
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContent {
-                      var tab by remember { mutableIntStateOf(0) }
-                      var rpm by remember { mutableIntStateOf(2000) }
-                      var tps by remember { mutableFloatStateOf(15.0f) }
-                      var afrActual by remember { mutableFloatStateOf(13.6f) }
+                      var tab by remember { mutableStateOf(0) }
+                      var rpm by remember { mutableStateOf(2000) }
+                      var tps by remember { mutableStateOf(15.0f) }
+                      var afrActual by remember { mutableStateOf(13.6f) }
                       val afrTarget = 12.8f
                       val logs = remember { mutableStateListOf("Mode simulasi aman aktif (Protokol fisik Juken 5 diisolasi).") }
                       val fuelMap = remember {
@@ -169,10 +167,10 @@ jobs:
                           containerColor = DarkBg,
                           bottomBar = {
                               NavigationBar(containerColor = SurfaceDark) {
-                                  NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.PlayArrow, null) }, label = { Text("Monitor") })
-                                  NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Build, null) }, label = { Text("Fuel Map") })
-                                  NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.Info, null) }, label = { Text("AI Tuner") })
-                                  NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Hardware") })
+                                  NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Text("📈", fontSize = 20.sp) }, label = { Text("Monitor") })
+                                  NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Text("⛽", fontSize = 20.sp) }, label = { Text("Fuel Map") })
+                                  NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Text("🤖", fontSize = 20.sp) }, label = { Text("AI Tuner") })
+                                  NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Text("⚙️", fontSize = 20.sp) }, label = { Text("Hardware") })
                               }
                           }
                       ) { padding ->
@@ -245,7 +243,7 @@ jobs:
 
       - name: Rakit Debug APK
         run: |
-          gradle assembleDebug --stacktrace
+          gradle assembleDebug --no-daemon
 
       - name: Simpan APK Siap Download
         uses: actions/upload-artifact@v4
