@@ -21,10 +21,6 @@ jobs:
           gradle-version: '8.2'
           cache-disabled: true
 
-      - name: Terima Lisensi Android SDK
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-
       - name: Buat Struktur Proyek Android
         run: |
           mkdir -p app/src/main/java/com/juken/aituner
@@ -52,31 +48,40 @@ jobs:
           }
           android {
               namespace = "com.juken.aituner"
-              compileSdk = 35
+              compileSdk = 34
               defaultConfig {
                   applicationId = "com.juken.aituner"
                   minSdk = 26
-                  targetSdk = 35
+                  targetSdk = 34
                   versionCode = 1
                   versionName = "1.0.0"
               }
-              buildTypes { release { isMinifyEnabled = false } }
+              buildTypes { 
+                  release { 
+                      isMinifyEnabled = false 
+                  } 
+              }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = "17" }
-              buildFeatures { compose = true }
-              composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
+              kotlinOptions { 
+                  jvmTarget = "17" 
+              }
+              buildFeatures { 
+                  compose = true 
+              }
+              composeOptions { 
+                  kotlinCompilerExtensionVersion = "1.5.8" 
+              }
           }
 
           dependencies {
               implementation("androidx.core:core-ktx:1.12.0")
               implementation("androidx.activity:activity-compose:1.8.2")
-              implementation(platform("androidx.compose:compose-bom:2024.02.01"))
-              implementation("androidx.compose.ui:ui")
-              implementation("androidx.compose.ui:ui-graphics")
-              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.ui:ui:1.5.4")
+              implementation("androidx.compose.ui:ui-graphics:1.5.4")
+              implementation("androidx.compose.material3:material3:1.1.2")
           }
           EOF
 
@@ -126,132 +131,4 @@ jobs:
           val SurfaceDark = Color(0xFF131B2E)
           val ElectricBlue = Color(0xFF00E5FF)
           val NeonGreen = Color(0xFF00E676)
-          val WarningAmber = Color(0xFFFFAB00)
-
-          class MainActivity : ComponentActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContent {
-                      var tab by remember { mutableStateOf(0) }
-                      var rpm by remember { mutableStateOf(2000) }
-                      var tps by remember { mutableStateOf(15.0f) }
-                      var afrActual by remember { mutableStateOf(13.6f) }
-                      val afrTarget = 12.8f
-                      val logs = remember { mutableStateListOf("Mode simulasi aman aktif (Protokol fisik Juken 5 diisolasi).") }
-                      val fuelMap = remember {
-                          mutableStateListOf(
-                              mutableStateListOf(14.0f, 16.5f, 18.0f, 21.0f),
-                              mutableStateListOf(22.0f, 25.0f, 28.5f, 32.0f),
-                              mutableStateListOf(30.0f, 34.0f, 39.0f, 45.0f)
-                          )
-                      }
-
-                      LaunchedEffect(Unit) {
-                          var curRpm = 2000
-                          while (true) {
-                              curRpm = if (curRpm >= 8500) 1800 else curRpm + 350
-                              rpm = curRpm
-                              tps = ((curRpm - 1800) / 7000f * 100f).coerceIn(0f, 100f)
-                              val rawAfr = 12.8f + if (curRpm > 4500) 0.8f else -0.4f
-                              afrActual = ((rawAfr * 10).toInt() / 10f)
-                              delay(400)
-                          }
-                      }
-
-                      fun applyCorrection(row: Int, col: Int) {
-                          val corr = ((afrActual / afrTarget) - 1.0f) * 100.0f
-                          val clamped = corr.coerceIn(-10.0f, 10.0f)
-                          val oldVal = fuelMap[row][col]
-                          val newVal = oldVal * (1.0f + (clamped / 100f))
-                          fuelMap[row][col] = ((newVal * 10).toInt() / 10f)
-                          val corrFormatted = ((clamped * 10).toInt() / 10f)
-                          logs.add(0, "Koreksi AFR (" + corrFormatted + "%) diaplikasikan pada sel [" + row + ", " + col + "]")
-                      }
-
-                      Scaffold(
-                          containerColor = DarkBg,
-                          bottomBar = {
-                              NavigationBar(containerColor = SurfaceDark) {
-                                  NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Text("📈", fontSize = 20.sp) }, label = { Text("Monitor") })
-                                  NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Text("⛽", fontSize = 20.sp) }, label = { Text("Fuel Map") })
-                                  NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Text("🤖", fontSize = 20.sp) }, label = { Text("AI Tuner") })
-                                  NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Text("⚙️", fontSize = 20.sp) }, label = { Text("Hardware") })
-                              }
-                          }
-                      ) { padding ->
-                          Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-                              when (tab) {
-                                  0 -> {
-                                      Text("JUKEN AI TUNER - LIVE MONITOR", color = ElectricBlue, fontSize = 18.sp)
-                                      Spacer(Modifier.height(16.dp))
-                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                          Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("RPM", color = Color.Gray, fontSize = 12.sp); Text("" + rpm, color = ElectricBlue, fontSize = 24.sp) }
-                                          }
-                                          Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("TPS", color = Color.Gray, fontSize = 12.sp); Text("" + ((tps * 10).toInt() / 10f) + "%", color = NeonGreen, fontSize = 24.sp) }
-                                          }
-                                      }
-                                      Spacer(Modifier.height(10.dp))
-                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                          Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("AFR AKTUAL", color = Color.Gray, fontSize = 12.sp); Text("" + afrActual, color = WarningAmber, fontSize = 24.sp) }
-                                          }
-                                          Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = SurfaceDark)) {
-                                              Column(Modifier.padding(12.dp)) { Text("AFR TARGET", color = Color.Gray, fontSize = 12.sp); Text("" + afrTarget, color = ElectricBlue, fontSize = 24.sp) }
-                                          }
-                                      }
-                                  }
-                                  1 -> {
-                                      Text("FUEL MAP (SIMULASI INTERAKTIF)", color = ElectricBlue, fontSize = 18.sp)
-                                      Text("Klik sel untuk simulasi koreksi AI", color = Color.Gray, fontSize = 12.sp)
-                                      Spacer(Modifier.height(16.dp))
-                                      fuelMap.forEachIndexed { r, row ->
-                                          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                              row.forEachIndexed { c, cell ->
-                                                  Box(
-                                                      Modifier.weight(1f).height(44.dp).background(SurfaceDark, RoundedCornerShape(4.dp)).border(1.dp, ElectricBlue, RoundedCornerShape(4.dp)).clickable { applyCorrection(r, c) },
-                                                      contentAlignment = Alignment.Center
-                                                  ) { Text("" + cell, color = Color.White, fontSize = 12.sp) }
-                                              }
-                                          }
-                                          Spacer(Modifier.height(6.dp))
-                                      }
-                                  }
-                                  2 -> {
-                                      Text("HYBRID AI ENGINE (LOCAL)", color = ElectricBlue, fontSize = 18.sp)
-                                      Spacer(Modifier.height(12.dp))
-                                      Card(colors = CardDefaults.cardColors(containerColor = SurfaceDark), modifier = Modifier.fillMaxWidth()) {
-                                          Column(Modifier.padding(14.dp)) {
-                                              val dev = ((((afrActual / afrTarget) - 1.0f) * 1000).toInt() / 10f)
-                                              Text("Analisis Deviasi AFR: " + dev + "%", color = if (afrActual > afrTarget) WarningAmber else NeonGreen, fontSize = 16.sp)
-                                              Spacer(Modifier.height(6.dp))
-                                              Text(if (afrActual > afrTarget) "Kondisi Lean. Rekomendasi naikkan suplai bensin." else "Kondisi Rich. Efisiensi optimal.", color = Color.LightGray, fontSize = 13.sp)
-                                          }
-                                      }
-                                  }
-                                  3 -> {
-                                      Text("STATUS ISOLASI HARDWARE", color = ElectricBlue, fontSize = 18.sp)
-                                      Spacer(Modifier.height(12.dp))
-                                      Text("Log Sistem:", color = Color.Gray, fontSize = 12.sp)
-                                      LazyColumn(Modifier.fillMaxSize().background(SurfaceDark).padding(8.dp)) {
-                                          items(logs) { log -> Text(log, color = Color.White, fontSize = 11.sp); Spacer(Modifier.height(4.dp)) }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-          EOF
-
-      - name: Rakit Debug APK
-        run: |
-          gradle assembleDebug --no-daemon --stacktrace
-
-      - name: Simpan APK Siap Download
-        uses: actions/upload-artifact@v4
-        with:
-          name: JUKEN-AI-TUNER-DEBUG-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          val WarningAmber = Co
